@@ -83,17 +83,26 @@ class Environment
      *
      * @param MigrationInterface $migration Migration
      * @param string $direction Direction
+     * @param boolean $dryRun Output SQL rather than invoking it
      * @return void
      */
-    public function executeMigration(MigrationInterface $migration, $direction = MigrationInterface::UP)
+    public function executeMigration(MigrationInterface $migration, $direction = MigrationInterface::UP, $dryRun = false)
     {
         $startTime = time();
         $direction = ($direction == MigrationInterface::UP) ? MigrationInterface::UP : MigrationInterface::DOWN;
-        $migration->setAdapter($this->getAdapter());
+        $adapter = $this->getAdapter();
+
+        // If --dry-run is enabled, wrap the adapter to output SQL instead of executing it
+        if ($dryRun) {
+            $adapter = AdapterFactory::instance()
+                ->getWrapper('dryrun', $adapter);
+        }
+
+        $migration->setAdapter($adapter);
 
         // begin the transaction if the adapter supports it
-        if ($this->getAdapter()->hasTransactions()) {
-            $this->getAdapter()->beginTransaction();
+        if ($adapter->hasTransactions()) {
+            $adapter->beginTransaction();
         }
 
         // Run the migration
@@ -102,12 +111,12 @@ class Environment
                 // Create an instance of the ProxyAdapter so we can record all
                 // of the migration commands for reverse playback
                 $proxyAdapter = AdapterFactory::instance()
-                    ->getWrapper('proxy', $this->getAdapter());
+                    ->getWrapper('proxy', $adapter);
                 $migration->setAdapter($proxyAdapter);
                 /** @noinspection PhpUndefinedMethodInspection */
                 $migration->change();
                 $proxyAdapter->executeInvertedCommands();
-                $migration->setAdapter($this->getAdapter());
+                $migration->setAdapter($adapter);
             } else {
                 /** @noinspection PhpUndefinedMethodInspection */
                 $migration->change();
@@ -117,12 +126,12 @@ class Environment
         }
 
         // commit the transaction if the adapter supports it
-        if ($this->getAdapter()->hasTransactions()) {
-            $this->getAdapter()->commitTransaction();
+        if ($adapter->hasTransactions()) {
+            $adapter->commitTransaction();
         }
 
         // Record it in the database
-        $this->getAdapter()->migrated($migration, $direction, date('Y-m-d H:i:s', $startTime), date('Y-m-d H:i:s', time()));
+        $adapter->migrated($migration, $direction, date('Y-m-d H:i:s', $startTime), date('Y-m-d H:i:s', time()));
     }
 
     /**
