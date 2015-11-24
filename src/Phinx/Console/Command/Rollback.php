@@ -47,6 +47,7 @@ class Rollback extends AbstractCommand
              ->setDescription('Rollback the last or to a specific migration')
              ->addOption('--target', '-t', InputOption::VALUE_REQUIRED, 'The version number to rollback to')
              ->addOption('--date', '-d', InputOption::VALUE_REQUIRED, 'The date to rollback to')
+             ->addOption('--dry-run', '-r', InputOption::VALUE_NONE, 'Output SQL rather than executing it')
              ->setHelp(
 <<<EOT
 The <info>rollback</info> command reverts the last migration, or optionally up to a specific version
@@ -74,6 +75,7 @@ EOT
         $environment = $input->getOption('environment');
         $version     = $input->getOption('target');
         $date        = $input->getOption('date');
+        $dryRun      = $input->getOption('dry-run');
 
         if (null === $environment) {
             $environment = $this->getConfig()->getDefaultEnvironment();
@@ -98,13 +100,24 @@ EOT
         // rollback the specified environment
         $start = microtime(true);
         if (null !== $date) {
-            $this->getManager()->rollbackToDateTime($environment, new \DateTime($date));
+            $this->getManager()->rollbackToDateTime($environment, new \DateTime($date), $dryRun);
         } else {
-            $this->getManager()->rollback($environment, $version);
+            $this->getManager()->rollback($environment, $version, $dryRun);
         }
         $end = microtime(true);
 
         $output->writeln('');
         $output->writeln('<comment>All Done. Took ' . sprintf('%.4fs', $end - $start) . '</comment>');
+    }
+
+    /**
+     * @inheritDoc
+     */
+    public function bootstrap(InputInterface $input, OutputInterface $output)
+    {
+        if ($input->getOption('dry-run')) {
+            $output->setVerbosity(OutputInterface::VERBOSITY_QUIET);
+        }
+        parent::bootstrap($input, $output);
     }
 }

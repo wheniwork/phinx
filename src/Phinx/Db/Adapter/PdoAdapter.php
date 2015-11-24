@@ -386,7 +386,7 @@ abstract class PdoAdapter implements AdapterInterface
                 $endTime
             );
 
-            $this->query($sql);
+            $this->execute($sql);
         } else {
             // down
             $sql = sprintf(
@@ -395,7 +395,7 @@ abstract class PdoAdapter implements AdapterInterface
                 $migration->getVersion()
             );
 
-            $this->query($sql);
+            $this->execute($sql);
         }
 
         return $this;
